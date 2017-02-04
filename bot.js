@@ -76,7 +76,7 @@ bot.onText(/\/stop (.+)/, (msg, match) => {
 });
 
 // Cron job for Europe/London
-new cron(everyMinute, () => {
+new cron(every15Mins5To6MondayToFriday, () => {
   const db = require(databaseFilePath);
   // Each chatId in the Europe/London index is run with its corresponding
   // journeyUrl and send out to the user
