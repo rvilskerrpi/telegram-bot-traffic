@@ -3,6 +3,7 @@ const dotenv = require('dotenv');
 const exec = require('child_process').exec;
 const databaseFilePath = './db.json';
 const cron = require('cron').CronJob;
+const platform = require('os').platform();
 const fs = require('fs');
 
 const logCommand = (command, message) => console.log(`-> Recieved /${command} from ${message.from.username || `${message.from.first_name} ${message.from.last_name}`} (${message.chat.id})`);
@@ -83,7 +84,7 @@ new cron(everyMinute, () => {
     // Run inside phantomjs to render the page and grab the journey time. Check
     // out get-journey-time.js for more on how the journey time is collected
     log(`Running scraper for ${chat.chatId}`);
-    exec(`./phantomjs get-journey-time.js ${chat.journeyUrl}`, (err, stdout) => {
+    exec(`./phantomjs_${platform === 'darwin' ? 'mac' : 'linux'} get-journey-time.js ${chat.journeyUrl}`, (err, stdout) => {
       log(`Scraping complete for ${chat.chatId}; sending message`);
       bot.sendMessage(chat.chatId, `It should take you around ${stdout.replace(/(\n|\r|\r\n)/, '')} to get home`);
     });
