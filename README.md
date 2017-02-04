@@ -7,4 +7,4 @@ A telegram bot that lets you know your journey home time when you're about to le
 3. Copy `db-sample.json` to `db.json`
 4. Start the bot with `node bot.js`
 5. Initiate a chat with your bot in telegram, done by going to `https://telegram.me/<YOUR BOT NAME>`
-6. Type `/init <GOOGLE MAPS DIRECTIONS URL> <TIMEZONE>` to initialise the bot. You'll then get messages with your journey time every 15 minutes from `16:45` till `17:45` *(Future plans to make this customisable)*.
+6. Type `/init <GOOGLE MAPS DIRECTIONS URL> <TIMEZONE>` to initialise the bot. You'll then get messages with your journey time every 15 minutes from `17:00` till `18:00` *(Future plans to make this customisable)*.

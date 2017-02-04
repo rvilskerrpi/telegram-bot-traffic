@@ -1,9 +1,9 @@
 {
-  "name": "telegram-bot-journey-home",
+  "name": "telegram-bot-traffic",
   "version": "1.0.0",
   "description": "A telegram bot that lets you know your journey home time when you're about to leave work",
   "main": "bot.js",
-  "repository": "https://github.com/robcalcroft/telegram-bot-journey-home",
+  "repository": "https://github.com/robcalcroft/telegram-bot-traffic",
   "author": "Rob Calcroft <rob@calcroft.com>",
   "license": "MIT",
   "dependencies": {

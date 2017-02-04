@@ -45,7 +45,7 @@ bot.onText(/\/init (.+)/, (msg, match) => {
     });
     // Rewrite the database
     fs.writeFileSync(databaseFilePath, JSON.stringify(db));
-    bot.sendMessage(chatId, `Ok that's all setup; you'll get notifications about your journey time every 15 minutes from 16:45 through 17:45 local time, Monday through Friday. To stop, use /stop`);
+    bot.sendMessage(chatId, `Ok that's all setup; you'll get notifications about your journey time every 15 minutes from 17:00 through 18:00 local time, Monday through Friday. To stop, use /stop <TIMEZONE>`);
   } else {
     // Support can be added by duplicating the cron job below for the timezone
     // you want and adding another index in the db.json file for the timezone
