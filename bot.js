@@ -126,7 +126,7 @@ bot.onText(/\/traffic (.+)/, (msg, match) => {
 });
 
 // Cron job for Europe/London
-new cron(everyMinute, () => {
+new cron(every15Mins5To6MondayToFriday, () => {
   log(`Scraping for ${timezones[0]}`);
   scrapeForTimezone(timezones[0]);
 }, null, true, timezones[0]);
