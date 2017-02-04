@@ -1,0 +1,14 @@
+{
+  "name": "telegram-bot-journey-home",
+  "version": "1.0.0",
+  "description": "A telegram bot that lets you know your journey home time when you're about to leave work",
+  "main": "bot.js",
+  "repository": "https://github.com/robcalcroft/telegram-bot-journey-home",
+  "author": "Rob Calcroft <rob@calcroft.com>",
+  "license": "MIT",
+  "dependencies": {
+    "cron": "^1.2.1",
+    "dotenv": "^4.0.0",
+    "node-telegram-bot-api": "^0.26.0"
+  }
+}
