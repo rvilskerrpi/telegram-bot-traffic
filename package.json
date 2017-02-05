@@ -9,6 +9,12 @@
   "dependencies": {
     "cron": "^1.2.1",
     "dotenv": "^4.0.0",
-    "node-telegram-bot-api": "^0.26.0"
+    "node-telegram-bot-api": "^0.26.0",
+    "sqlite": "^2.3.0"
+  },
+  "devDependencies": {
+    "eslint": "^3.15.0",
+    "eslint-config-airbnb-base": "^11.1.0",
+    "eslint-plugin-import": "^2.2.0"
   }
 }

@@ -1,19 +1,17 @@
 // Setup environment
-const TelegramBot = require('node-telegram-bot-api');
-const dotenv = require('dotenv');
-const exec = require('child_process').exec;
-const databaseFilePath = './db.json';
-const cron = require('cron').CronJob;
-const platform = require('os').platform();
-const fs = require('fs');
-const every15Mins5To6MondayToFriday = '*/15 17,18 * * 1-5';
-const everyMinute = '* * * * 0-6';
-const timezones = [
-  'Europe/London',
-];
+require('dotenv').load();
 
-// Load the token into the environment
-dotenv.load();
+const TelegramBot = require('node-telegram-bot-api');
+const exec = require('child_process').exec;
+const sqlite = require('sqlite3').verbose(); // eslint-disable-line
+const Cron = require('cron').CronJob;
+const platform = require('os').platform();
+
+const db = new sqlite.Database(process.env.DATABASE_NAME);
+const userTable = 'user';
+const every15Mins5To6MondayToFriday = '*/15 17,18 * * 1-5';
+const every30Mins7To8To9MondayToFriday = '*/30 7,8,9 * * 1-5';
+// const everyMinute = '* * * * 0-6';
 
 const bot = new TelegramBot(process.env.TOKEN, { polling: true });
 
@@ -25,108 +23,100 @@ const log = message => console.log(`${new Date()} -> ${message}`);
 const runScraper = (chat) => {
   // Run inside phantomjs to render the page and grab the journey time. Check
   // out get-journey-time.js for more on how the journey time is collected
+  if (!chat) {
+    return false;
+  }
+
   log(`Running scraper for ${chat.chatId}`);
   bot.sendChatAction(chat.chatId, 'typing');
-  exec(`./phantomjs_${platform === 'darwin' ? 'mac' : 'linux'} get-journey-time.js ${chat.journeyUrl}`, (err, stdout) => {
+  return exec(`./phantomjs_${platform === 'darwin' ? 'mac' : 'linux'} get-journey-time.js ${chat.journeyUrl}`, (err, stdout) => {
     log(`Scraping complete for ${chat.chatId}; sending message`);
-    bot.sendMessage(chat.chatId, `It should take you around ${stdout.replace(/(\n|\r|\r\n)/, '')} to get home`);
+    bot.sendMessage(chat.chatId, `It should take you around ${stdout.replace(/(\n|\r|\r\n)/, '')} to get ${chat.type === 'morning' ? 'to work' : 'home'}`);
   });
 };
 
-const scrapeForTimezone = (timezone) => {
-  const db = require(databaseFilePath);
-  // Each chatId in the Europe/London index is run with its corresponding
-  // journeyUrl and send out to the user
-  db[timezone].forEach(runScraper);
-  delete db;
-};
-
-const scrapeForChatIdInTimezone = (chatId, timezone) => {
-  const db = require(databaseFilePath);
-  const chat = db[timezone].find(chat => chat.chatId === chatId);
-
-  if (chat) {
-    runScraper(chat);
-  } else {
-    bot.sendMessage(chatId, 'Oops, couldn\'t find you in the databse, have you initialised using /init?');
+// Creates a cronjob for the timezone specified
+const cronJobFactory = (timezone, type) => new Cron(type === 'morning' ? every30Mins7To8To9MondayToFriday : every15Mins5To6MondayToFriday, () => {
+  if (!timezone || !type) {
+    throw new Error('A timezone and type must be specified for the cron job factory');
   }
-};
+
+  log(`Scraping for ${timezone} -> ${type}`);
+
+  db.each(`select * from ${userTable} where timezone=? and type=?`, timezone, type, (err, row) => runScraper(row));
+}, null, true, timezone);
+
+// Initialise database
+db.all(`select * from ${userTable}`, (err, result) => {
+  if (result === undefined) {
+    db.run(`
+      create table ${userTable} (
+        timezone varchar(50) not null,
+        chatId varchar(50) not null,
+        journeyUrl varchar(750) not null,
+        type varchar(20) not null,
+        primary key (journeyUrl, chatId)
+      )
+    `);
+  } else {
+    log(`${userTable} table already exists, skipping table creation`);
+  }
+});
 
 log('Bot initialised');
 
 // /init is the command to initialise a traffic session. Takes a journeyUrl and
-// a timezone to be used for cron
+// a timezone and a type which is morning or night to be used for cron
 bot.onText(/\/init (.+)/, (msg, match) => {
-  const db = require(databaseFilePath);
-  const arguments = match[1].split(' ');
-  const journeyUrl = arguments[0];
-  const timezone = arguments[1];
+  const args = match[1].split(' ');
+  const journeyUrl = args[0];
+  const timezone = args[1];
+  const type = args[2];
   const chatId = msg.chat.id;
 
-  if (!journeyUrl || !timezone) {
-    return bot.sendMessage(chatId, 'Oops, you need to send both a journey url as the first argument and the timezone as the second');
-  }
-
-  logCommand('init', msg);
-
-  // Check if the timezone is supported
-  if (Object.keys(db).indexOf(timezone) !== -1) {
-    // Add the chatId and the journeyUrl given to the database indexed by the
-    // timezone
-    db[timezone].push({
-      chatId,
-      journeyUrl,
-    });
-    // Rewrite the database
-    fs.writeFileSync(databaseFilePath, JSON.stringify(db));
-    bot.sendMessage(chatId, `Ok that's all setup; you'll get notifications about your journey time every 15 minutes from 17:00 through 18:00 local time, Monday through Friday. To stop, use /stop <TIMEZONE>`);
+  if (!journeyUrl || !timezone || (type !== 'night' && type !== 'morning')) {
+    bot.sendMessage(chatId, 'Oops, the init needs to look like /init <JOURNEY URL> <TIMEZONE> <TYPE (night or morning)>');
   } else {
-    // Support can be added by duplicating the cron job below for the timezone
-    // you want and adding another index in the db.json file for the timezone
-    // you want just like the default Europe/London
-    bot.sendMessage(chatId, `Oops, timezone ${timezone} isn't supported, you need to ask the bot admin to add support`);
+    logCommand('init', msg);
+
+    db.all(`insert into ${userTable} (chatId, timezone, journeyUrl, type) VALUES (?, ?, ?, ?)`, [
+      chatId,
+      timezone,
+      journeyUrl,
+      type,
+    ], (err) => {
+      if (err) {
+        bot.sendMessage(chatId, 'Uh oh, there was a database issue; contact the admin');
+      } else {
+        bot.sendMessage(chatId, `Ok that's all setup; you'll get notifications about your journey time every ${type === 'morning' ? '30 minutes from 7am through 9am' : '15 minutes from 17:00 through 18:00'} local time, Monday through Friday. To stop, use /stop`);
+      }
+    });
   }
-  delete db;
 });
 
 // Run to stop notifications, using the timezone to lookup the correct chatId
 // and remove from the database
-bot.onText(/\/stop (.+)/, (msg, match) => {
-  const db = require(databaseFilePath);
-  const timezone = match[1];
-  const timezoneToRemoveFrom = db[timezone];
-  const databaseWithChatRemoved = timezoneToRemoveFrom.filter(chat => chat.chatId !== msg.chat.id);
-
-  if (!timezone) {
-    return bot.sendMessage(msg.chat.id, 'You need to specify the timezone to remove you from: /stop <TIMEZONE>');
-  }
-
-  db[timezone] = databaseWithChatRemoved;
-
+bot.onText(/\/stop/, (msg) => {
+  const chatId = msg.chat.id;
   logCommand('stop', msg);
 
-  fs.writeFileSync(databaseFilePath, JSON.stringify(db));
-
-  bot.sendMessage(msg.chat.id, `Notifications have been stopped, run /init to start them again`);
-
-  delete db;
+  db.all(`delete from ${userTable} where chatId=?`, chatId, (err) => {
+    if (err) {
+      bot.sendMessage(chatId, 'Uh oh, there was a database issue; contact the admin');
+    } else {
+      bot.sendMessage(chatId, 'Notifications have been stopped, run /init to start them again');
+    }
+  });
 });
 
 // The /traffic command allows the user to request the their time to home status
 // on demand rather than wait for the cron job to come around.
-bot.onText(/\/traffic (.+)/, (msg, match) => {
-  const timezone = match[1];
+bot.onText(/\/traffic/, (msg) => {
   const chatId = msg.chat.id;
+  logCommand('traffic', msg);
 
-  if (timezones.indexOf(timezone) !== -1) {
-    scrapeForChatIdInTimezone(chatId, timezone);
-  } else {
-    bot.sendMessage(chatId, `Oops, timezone ${timezone} isn't supported, you need to ask the bot admin to add support`);
-  }
+  db.all(`select * from ${userTable} where chatId=?`, chatId, (err, rows) => rows.forEach(runScraper));
 });
 
-// Cron job for Europe/London
-new cron(every15Mins5To6MondayToFriday, () => {
-  log(`Scraping for ${timezones[0]}`);
-  scrapeForTimezone(timezones[0]);
-}, null, true, timezones[0]);
+cronJobFactory('Europe/London', 'morning');
+cronJobFactory('Europe/London', 'night');
