@@ -9,8 +9,8 @@ const platform = require('os').platform();
 
 const db = new sqlite.Database(process.env.DATABASE_NAME);
 const userTable = 'user';
-const every15Mins5To6MondayToFriday = '*/15 17,18 * * 1-5';
-const every30Mins7To8To9MondayToFriday = '*/30 7,8,9 * * 1-5';
+const every15Mins5To6MondayToFriday = '*/15 17 * * 1-5';
+const every30Mins7To8To9MondayToFriday = '*/30 7,8 * * 1-5';
 // const everyMinute = '* * * * 0-6';
 
 const bot = new TelegramBot(process.env.TOKEN, { polling: true });
